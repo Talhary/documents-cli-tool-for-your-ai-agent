@@ -1,0 +1,126 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    name: Build & Release
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        include:
+          # Linux
+          - goos: linux
+            goarch: amd64
+            archive_ext: tar.gz
+          - goos: linux
+            goarch: arm64
+            archive_ext: tar.gz
+          # macOS (Darwin)
+          - goos: darwin
+            goarch: amd64
+            archive_ext: tar.gz
+          - goos: darwin
+            goarch: arm64
+            archive_ext: tar.gz
+          # Windows
+          - goos: windows
+            goarch: amd64
+            archive_ext: zip
+          - goos: windows
+            goarch: arm64
+            archive_ext: zip
+          - goos: windows
+            goarch: '386'
+            archive_ext: zip
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.25'
+          cache: true
+
+      - name: Determine Version
+        id: version
+        run: |
+          if [ -n "${{ github.ref_name }}" ]; then
+            echo "TAG=${{ github.ref_name }}" >> $GITHUB_OUTPUT
+          else
+            echo "TAG=v1.0.0" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Build Binary
+        env:
+          GOOS: ${{ matrix.goos }}
+          GOARCH: ${{ matrix.goarch }}
+          CGO_ENABLED: 0
+        run: |
+          BINARY_NAME="agentdoc"
+          if [ "${{ matrix.goos }}" = "windows" ]; then
+            BINARY_NAME="agentdoc.exe"
+          fi
+          DIST_DIR="dist_${{ matrix.goos }}_${{ matrix.goarch }}"
+          mkdir -p "$DIST_DIR"
+          go build -trimpath -ldflags="-s -w -X main.version=${{ steps.version.outputs.TAG }}" -o "$DIST_DIR/$BINARY_NAME" .
+          cp README.md "$DIST_DIR/"
+
+      - name: Package Archive
+        run: |
+          TAG="${{ steps.version.outputs.TAG }}"
+          ARCHIVE_NAME="agentdoc-${TAG}-${{ matrix.goos }}-${{ matrix.goarch }}"
+          DIST_DIR="dist_${{ matrix.goos }}_${{ matrix.goarch }}"
+          mkdir -p release_assets
+
+          if [ "${{ matrix.archive_ext }}" = "zip" ]; then
+            cd "$DIST_DIR"
+            zip -r "../../release_assets/${ARCHIVE_NAME}.zip" .
+            cd ../..
+          else
+            tar -czvf "release_assets/${ARCHIVE_NAME}.tar.gz" -C "$DIST_DIR" .
+          fi
+
+      - name: Upload Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: assets-${{ matrix.goos }}-${{ matrix.goarch }}
+          path: release_assets/*
+
+  release:
+    name: Publish GitHub Release
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Download All Built Artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: all_assets
+          merge-multiple: true
+
+      - name: Generate Checksums
+        run: |
+          cd all_assets
+          sha256sum * > checksums.txt
+          cat checksums.txt
+
+      - name: Create Release
+        uses: softprops/action-gh-release@v2
+        if: startsWith(github.ref, 'refs/tags/')
+        with:
+          files: |
+            all_assets/*
+          generate_release_notes: true
+          draft: false
+          prerelease: false

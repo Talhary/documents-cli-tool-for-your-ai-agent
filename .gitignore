@@ -1,0 +1,23 @@
+# Binaries
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+
+agentdoc
+agentdoc.exe
+
+# Test artifacts and local files
+images/
+files/
+*.tmp
+*.log
+scratch/
+testdata/temp/
+
+# IDE and OS
+.idea/
+.vscode/
+.DS_Store
+Thumbs.db
