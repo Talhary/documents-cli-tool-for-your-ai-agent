@@ -236,3 +236,26 @@ func AddRow(filePath, sheet string, values []string) (int, error) {
 	}
 	return targetRow, nil
 }
+
+// SheetToText renders every sheet's rows as tab-separated plain text, one row
+// per line. Used by the text extraction and document search subsystems.
+func SheetToText(filePath string) (string, error) {
+	f, err := excelize.OpenFile(filePath)
+	if err != nil {
+		return "", fmt.Errorf("failed opening %s: %w", filePath, err)
+	}
+	defer f.Close()
+
+	var b strings.Builder
+	for _, name := range f.GetSheetList() {
+		rows, err := f.GetRows(name)
+		if err != nil {
+			continue
+		}
+		for _, row := range rows {
+			b.WriteString(strings.Join(row, "\t"))
+			b.WriteString("\n")
+		}
+	}
+	return strings.TrimRight(b.String(), "\n"), nil
+}

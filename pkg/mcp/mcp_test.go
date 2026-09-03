@@ -50,3 +50,25 @@ func TestMCPServer_HandshakeAndTools(t *testing.T) {
 		t.Fatalf("expected tools in list, got: %+v", resMap)
 	}
 }
+
+func TestDispatch_NewTools(t *testing.T) {
+	// Test text_tokens
+	rawTokens, isErr := Dispatch("text_tokens", []byte(`{"filePath":"../../main.go"}`))
+	if isErr {
+		// Try local main.go
+		rawTokens, isErr = Dispatch("text_tokens", []byte(`{"filePath":"main.go"}`))
+	}
+	if isErr {
+		t.Fatalf("Dispatch text_tokens failed: %s", rawTokens)
+	}
+
+	// Test extract_links
+	rawLinks, isErr := Dispatch("extract_links", []byte(`{"filePath":"../../README.md"}`))
+	if isErr {
+		rawLinks, isErr = Dispatch("extract_links", []byte(`{"filePath":"README.md"}`))
+	}
+	if isErr {
+		t.Fatalf("Dispatch extract_links failed: %s", rawLinks)
+	}
+}
+

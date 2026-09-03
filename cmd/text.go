@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	"docs-cli/pkg/output"
+	"docs-cli/pkg/textextract"
 	"docs-cli/pkg/textops"
 	"github.com/spf13/cobra"
 )
@@ -37,6 +38,9 @@ var (
 	cleanReplace    string
 	cleanNormalize  string
 	concatSkipEmpty bool
+	chunkMaxTokens  int
+	chunkOverlap    int
+	chunkBySentence bool
 )
 
 var readLinesCmd = &cobra.Command{
@@ -252,6 +256,82 @@ var cleanCmd = &cobra.Command{
 	},
 }
 
+var chunkCmd = &cobra.Command{
+	Use:   "chunk [file]",
+	Short: "Split a file into token-bounded chunks with overlap for RAG pipelines",
+	Long: `Splits any supported file (text, code, PDF, DOCX, XLSX, CSV, Markdown) into
+approximately token-sized chunks with optional overlap, ideal for embedding and
+retrieval-augmented generation. Token counts are estimated to approximate common
+LLM tokenizers without external dependencies.`,
+	Args: cobra.ExactArgs(1),
+	RunE: func(cmd *cobra.Command, args []string) error {
+		filePath := args[0]
+		text, _, err := textextract.ExtractText(filePath)
+		if err != nil {
+			return err
+		}
+
+		res := textops.ChunkText(text, textops.ChunkOptions{
+			MaxTokens:     chunkMaxTokens,
+			OverlapTokens: chunkOverlap,
+			BySentence:    chunkBySentence,
+		})
+
+		stats := &output.Stats{
+			FilesProcessed: 1,
+			MatchesFound:   res.TotalChunks,
+			BytesRead:      int64(len(text)),
+		}
+
+		printCmdResponse(cmd, output.SuccessResponse("text.chunk", res, stats), func() string {
+			var b strings.Builder
+			b.WriteString(fmt.Sprintf("Split %s into %d chunks (~%d tokens total, max %d, overlap %d):\n\n",
+				filePath, res.TotalChunks, res.TotalTokens, res.MaxTokens, res.Overlap))
+			for _, c := range res.Chunks {
+				b.WriteString(fmt.Sprintf("--- Chunk %d [lines %d-%d, ~%d tokens] ---\n%s\n\n",
+					c.Index, c.StartLine, c.EndLine, c.Tokens, c.Text))
+			}
+			return b.String()
+		})
+
+		return nil
+	},
+}
+
+var tokensCmd = &cobra.Command{
+	Use:   "tokens [file]",
+	Short: "Estimate the LLM token count of a file to plan context window usage",
+	Args:  cobra.ExactArgs(1),
+	RunE: func(cmd *cobra.Command, args []string) error {
+		filePath := args[0]
+		text, format, err := textextract.ExtractText(filePath)
+		if err != nil {
+			return err
+		}
+
+		est := textops.EstimateTokens(text)
+		data := map[string]any{
+			"file_path":  filePath,
+			"format":     format,
+			"characters": est.Characters,
+			"words":      est.Words,
+			"tokens":     est.Tokens,
+		}
+
+		stats := &output.Stats{
+			FilesProcessed: 1,
+			BytesRead:      int64(len(text)),
+		}
+
+		printCmdResponse(cmd, output.SuccessResponse("text.tokens", data, stats), func() string {
+			return fmt.Sprintf("%s (%s): ~%d tokens, %d words, %d characters",
+				filePath, format, est.Tokens, est.Words, est.Characters)
+		})
+
+		return nil
+	},
+}
+
 func init() {
 	textCmd.AddCommand(readLinesCmd)
 	textCmd.AddCommand(replaceLinesCmd)
@@ -259,6 +339,8 @@ func init() {
 	textCmd.AddCommand(deleteLinesCmd)
 	textCmd.AddCommand(concatCmd)
 	textCmd.AddCommand(cleanCmd)
+	textCmd.AddCommand(chunkCmd)
+	textCmd.AddCommand(tokensCmd)
 
 	readLinesCmd.Flags().IntVar(&startLine, "start", 1, "Starting line number (1-based)")
 	readLinesCmd.Flags().IntVar(&endLine, "end", 0, "Ending line number (0 = EOF)")
@@ -291,6 +373,10 @@ func init() {
 	cleanCmd.Flags().StringVar(&cleanRegex, "pattern", "", "Regex pattern to replace")
 	cleanCmd.Flags().StringVar(&cleanReplace, "replace", "", "Replacement text for regex pattern")
 	cleanCmd.Flags().StringVar(&cleanNormalize, "normalize", "", "Normalize line endings: 'lf' or 'crlf'")
+
+	chunkCmd.Flags().IntVar(&chunkMaxTokens, "max-tokens", 512, "Approximate maximum tokens per chunk")
+	chunkCmd.Flags().IntVar(&chunkOverlap, "overlap", 0, "Approximate tokens of overlap between chunks")
+	chunkCmd.Flags().BoolVar(&chunkBySentence, "by-sentence", false, "Avoid splitting in the middle of sentences")
 
 	rootCmd.AddCommand(textCmd)
 }

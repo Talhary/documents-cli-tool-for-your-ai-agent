@@ -109,6 +109,12 @@ agentdoc search code "const [A-Z_]+ = \d+;" --regex -s
 # Return matches formatted as JSON for AI agents
 agentdoc search code "TODO" --dir . --json
 
+# Search inside documents (PDF, DOCX, XLSX, CSV, Markdown, text)
+agentdoc search docs "billing invoice" --dir ./files --ext pdf,docx -C 1
+
+# Case-sensitive regex search inside documents
+agentdoc search docs "Invoice #[0-9]+" --dir ./files --regex
+
 # Find files matching glob patterns recursively
 agentdoc search files "*.test.js" --dir . --depth 3
 ```
@@ -147,9 +153,9 @@ agentdoc search files "*.test.js" --dir . --depth 3
 
 ---
 
-### 2. Surgical Text Operations (`agentdoc text`)
+### 2. Surgical Text Operations & Token Analysis (`agentdoc text`)
 
-Fast, atomic line-based reading, replacing, inserting, concatenating, and cleaning for code/text files.
+Fast, atomic line-based reading, replacing, inserting, concatenating, cleaning, and RAG chunking.
 
 ```bash
 # Read exact lines 10 to 25
@@ -169,6 +175,12 @@ agentdoc text concat ./src/*.js --output bundle.txt --header "=== File: %b (%n l
 
 # Strip ANSI codes, remove trailing whitespace, and clean blank lines
 agentdoc text clean output.log --strip-ansi --strip-blank --trim
+
+# Estimate LLM token counts for context window budget
+agentdoc text tokens report.pdf
+
+# Split file into token-bounded chunks with overlap for RAG pipelines
+agentdoc text chunk document.pdf --max-tokens 512 --overlap 50 --json
 ```
 
 ---
@@ -299,6 +311,72 @@ agentdoc convert data.csv data.xlsx
 
 # Image to PDF
 agentdoc convert chart.png chart.pdf
+```
+
+---
+
+### 8. Extract Structured Data (`agentdoc extract`)
+
+Extract links, emails, dates, tables, and document metadata across all supported formats:
+
+```bash
+# Extract unique URLs, email addresses, and dates
+agentdoc extract links report.pdf --json
+
+# Extract tables from DOCX, XLSX, or CSV as structured rows
+agentdoc extract tables spreadsheet.xlsx --json
+
+# Extract file metadata (pages, sheets, word counts, timestamps)
+agentdoc extract metadata document.docx --json
+```
+
+---
+
+### 9. LLM Tool Schemas (`agentdoc schema`)
+
+Export tool schemas formatted for OpenAI Function Calling, Anthropic Claude Tool Use, or MCP:
+
+```bash
+# Export all tools for OpenAI Function Calling
+agentdoc schema --format openai
+
+# Export single tool for Anthropic Claude Tool Use
+agentdoc schema --format anthropic --tool read_lines
+
+# Export standard MCP tool definitions
+agentdoc schema --format mcp
+```
+
+---
+
+### 10. Batch Manifest Runner (`agentdoc batch`)
+
+Run sequential multi-step tool pipelines from a JSON manifest file:
+
+```bash
+agentdoc batch manifest.json
+agentdoc batch manifest.json --json --stop-on-error
+```
+
+#### Manifest Example (`manifest.json`):
+```json
+[
+  {
+    "id": "find_invoices",
+    "tool": "search_docs",
+    "arguments": {
+      "query": "invoice",
+      "dir": "./files"
+    }
+  },
+  {
+    "id": "extract_contact_info",
+    "tool": "extract_links",
+    "arguments": {
+      "filePath": "./files/report.pdf"
+    }
+  }
+]
 ```
 
 ---

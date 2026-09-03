@@ -10,10 +10,12 @@ import (
 
 	"docs-cli/pkg/converter"
 	"docs-cli/pkg/docs"
+	"docs-cli/pkg/extract"
 	"docs-cli/pkg/imgops"
 	"docs-cli/pkg/pdf"
 	"docs-cli/pkg/search"
 	"docs-cli/pkg/sheets"
+	"docs-cli/pkg/textextract"
 	"docs-cli/pkg/textops"
 )
 
@@ -77,7 +79,7 @@ func RunServer(r io.Reader, w io.Writer) error {
 	buf := make([]byte, 64*1024)
 	scanner.Buffer(buf, 10*1024*1024)
 
-	tools := getToolDefinitions()
+	tools := GetToolDefinitions()
 
 	for scanner.Scan() {
 		line := scanner.Bytes()
@@ -219,7 +221,7 @@ func RunServer(r io.Reader, w io.Writer) error {
 				continue
 			}
 
-			resultText, isErr := handleToolCall(callParams.Name, callParams.Arguments)
+			resultText, isErr := Dispatch(callParams.Name, callParams.Arguments)
 			resp := JSONRPCResponse{
 				JSONRPC: "2.0",
 				ID:      req.ID,
@@ -262,7 +264,7 @@ func sendError(w io.Writer, id any, code int, message string) {
 	sendResponse(w, resp)
 }
 
-func getToolDefinitions() []Tool {
+func GetToolDefinitions() []Tool {
 	return []Tool{
 		{
 			Name:        "search_code",
@@ -506,10 +508,89 @@ func getToolDefinitions() []Tool {
 				Required: []string{"input", "output"},
 			},
 		},
+		{
+			Name:        "search_docs",
+			Description: "Search for regex or exact text inside documents (PDF, DOCX, XLSX, CSV, Markdown, text) concurrently",
+			InputSchema: InputSchema{
+				Type: "object",
+				Properties: map[string]Property{
+					"query":         {Type: "string", Description: "Search query or regex pattern"},
+					"dir":           {Type: "string", Description: "Root directory to search (defaults to .)"},
+					"regex":         {Type: "boolean", Description: "Treat query as regex"},
+					"caseSensitive": {Type: "boolean", Description: "Case-sensitive matching"},
+					"ext":           {Type: "string", Description: "Comma-separated extensions to include (e.g. pdf,docx,xlsx)"},
+					"exclude":       {Type: "string", Description: "Comma-separated globs to exclude"},
+					"context":       {Type: "integer", Description: "Lines of context before and after match"},
+					"max":           {Type: "integer", Description: "Maximum number of matches to return (0 = unlimited)"},
+				},
+				Required: []string{"query"},
+			},
+		},
+		{
+			Name:        "text_chunk",
+			Description: "Split any document or code file into token-bounded chunks with overlap for RAG pipelines and LLM embeddings",
+			InputSchema: InputSchema{
+				Type: "object",
+				Properties: map[string]Property{
+					"filePath":   {Type: "string", Description: "Path to document or code file"},
+					"maxTokens":  {Type: "integer", Description: "Maximum tokens per chunk (default 512)"},
+					"overlap":    {Type: "integer", Description: "Tokens of overlap between consecutive chunks (default 0)"},
+					"bySentence": {Type: "boolean", Description: "Avoid splitting in the middle of sentences"},
+				},
+				Required: []string{"filePath"},
+			},
+		},
+		{
+			Name:        "text_tokens",
+			Description: "Estimate LLM token count, word count, and character count of any file to plan context window budget",
+			InputSchema: InputSchema{
+				Type: "object",
+				Properties: map[string]Property{
+					"filePath": {Type: "string", Description: "Path to document or code file"},
+				},
+				Required: []string{"filePath"},
+			},
+		},
+		{
+			Name:        "extract_links",
+			Description: "Extract unique URLs, email addresses, and dates from any supported document (PDF, DOCX, XLSX, CSV, Markdown, text)",
+			InputSchema: InputSchema{
+				Type: "object",
+				Properties: map[string]Property{
+					"filePath": {Type: "string", Description: "Path to document"},
+				},
+				Required: []string{"filePath"},
+			},
+		},
+		{
+			Name:        "extract_tables",
+			Description: "Extract tabular data from Word DOCX, Excel XLSX, or CSV files as structured rows and columns",
+			InputSchema: InputSchema{
+				Type: "object",
+				Properties: map[string]Property{
+					"filePath": {Type: "string", Description: "Path to DOCX, XLSX, or CSV file"},
+				},
+				Required: []string{"filePath"},
+			},
+		},
+		{
+			Name:        "extract_metadata",
+			Description: "Extract file metadata including page count, sheet count, paragraph count, word count, and timestamps",
+			InputSchema: InputSchema{
+				Type: "object",
+				Properties: map[string]Property{
+					"filePath": {Type: "string", Description: "Path to file"},
+				},
+				Required: []string{"filePath"},
+			},
+		},
 	}
 }
 
-func handleToolCall(name string, rawArgs json.RawMessage) (string, bool) {
+// Dispatch executes a named tool with raw JSON arguments and returns the result
+// text plus an error flag. It is exported so the schema and batch commands can
+// invoke the same tool implementations used by the MCP server.
+func Dispatch(name string, rawArgs json.RawMessage) (string, bool) {
 	switch name {
 	case "search_code":
 		var args struct {
@@ -841,6 +922,129 @@ func handleToolCall(name string, rawArgs json.RawMessage) (string, bool) {
 			return err.Error(), true
 		}
 		return fmt.Sprintf("Successfully converted %s -> %s", args.Input, args.Output), false
+
+	case "search_docs":
+		var args struct {
+			Query         string `json:"query"`
+			Dir           string `json:"dir"`
+			Regex         bool   `json:"regex"`
+			CaseSensitive bool   `json:"caseSensitive"`
+			Ext           string `json:"ext"`
+			Exclude       string `json:"exclude"`
+			Context       int    `json:"context"`
+			Max           int    `json:"max"`
+		}
+		json.Unmarshal(rawArgs, &args)
+		var includes []string
+		if args.Ext != "" {
+			for _, ext := range strings.Split(args.Ext, ",") {
+				ext = strings.TrimSpace(ext)
+				if !strings.HasPrefix(ext, "*") {
+					ext = "*." + strings.TrimPrefix(ext, ".")
+				}
+				includes = append(includes, ext)
+			}
+		}
+		var excludes []string
+		if args.Exclude != "" {
+			for _, ex := range strings.Split(args.Exclude, ",") {
+				excludes = append(excludes, strings.TrimSpace(ex))
+			}
+		}
+		opts := search.SearchOptions{
+			Query:         args.Query,
+			RootDir:       args.Dir,
+			IsRegex:       args.Regex,
+			CaseSensitive: args.CaseSensitive,
+			IncludeGlobs:  includes,
+			ExcludeGlobs:  excludes,
+			ContextBefore: args.Context,
+			ContextAfter:  args.Context,
+			MaxMatches:    args.Max,
+			Workers:       0,
+		}
+		res, err := search.SearchDocs(context.Background(), opts)
+		if err != nil {
+			return err.Error(), true
+		}
+		b, _ := json.MarshalIndent(res, "", "  ")
+		return string(b), false
+
+	case "text_chunk":
+		var args struct {
+			FilePath   string `json:"filePath"`
+			MaxTokens  int    `json:"maxTokens"`
+			Overlap    int    `json:"overlap"`
+			BySentence bool   `json:"bySentence"`
+		}
+		json.Unmarshal(rawArgs, &args)
+		text, _, err := textextract.ExtractText(args.FilePath)
+		if err != nil {
+			return err.Error(), true
+		}
+		res := textops.ChunkText(text, textops.ChunkOptions{
+			MaxTokens:     args.MaxTokens,
+			OverlapTokens: args.Overlap,
+			BySentence:    args.BySentence,
+		})
+		b, _ := json.MarshalIndent(res, "", "  ")
+		return string(b), false
+
+	case "text_tokens":
+		var args struct {
+			FilePath string `json:"filePath"`
+		}
+		json.Unmarshal(rawArgs, &args)
+		text, format, err := textextract.ExtractText(args.FilePath)
+		if err != nil {
+			return err.Error(), true
+		}
+		est := textops.EstimateTokens(text)
+		data := map[string]any{
+			"file_path":  args.FilePath,
+			"format":     format,
+			"characters": est.Characters,
+			"words":      est.Words,
+			"tokens":     est.Tokens,
+		}
+		b, _ := json.MarshalIndent(data, "", "  ")
+		return string(b), false
+
+	case "extract_links":
+		var args struct {
+			FilePath string `json:"filePath"`
+		}
+		json.Unmarshal(rawArgs, &args)
+		res, err := extract.Links(args.FilePath)
+		if err != nil {
+			return err.Error(), true
+		}
+		b, _ := json.MarshalIndent(res, "", "  ")
+		return string(b), false
+
+	case "extract_tables":
+		var args struct {
+			FilePath string `json:"filePath"`
+		}
+		json.Unmarshal(rawArgs, &args)
+		res, err := extract.Tables(args.FilePath)
+		if err != nil {
+			return err.Error(), true
+		}
+		b, _ := json.MarshalIndent(res, "", "  ")
+		return string(b), false
+
+	case "extract_metadata":
+		var args struct {
+			FilePath string `json:"filePath"`
+		}
+		json.Unmarshal(rawArgs, &args)
+		res, err := extract.Metadata(args.FilePath)
+		if err != nil {
+			return err.Error(), true
+		}
+		b, _ := json.MarshalIndent(res, "", "  ")
+		return string(b), false
 
 	default:
 		return fmt.Sprintf("Tool not found: %s", name), true

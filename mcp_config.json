@@ -7,12 +7,15 @@
       "capabilities": [
         "search_code: Multi-threaded regex/exact text search in files with before/after context lines",
         "search_files: Fast recursive directory crawler matching glob patterns",
+        "search_docs: Multi-threaded search inside documents (PDF, DOCX, XLSX, CSV, Markdown, text)",
         "read_lines: Exact 1-based line reading with line numbers and boundary checks",
         "replace_lines: Atomic line replacement via temp file swap to avoid corruption",
         "insert_lines: Insert lines before or after specific line numbers",
         "delete_lines: Delete line ranges from code or text files",
         "concat_files: Concatenate files with custom headers and delimiters",
         "clean_file: Strip ANSI codes, remove blank lines, trim trailing whitespace, regex substitution",
+        "text_chunk: Split files into token-bounded chunks with overlap for RAG pipelines",
+        "text_tokens: Estimate LLM token count, word count, and characters for context budget",
         "sheets_info: Inspect sheet names, row counts, and column headers in XLSX workbooks",
         "sheets_set_cell: Update specific cell value in an XLSX workbook",
         "sheets_get_cell: Read specific cell value from an XLSX workbook",
@@ -22,6 +25,9 @@
         "pdf_read: Extract plain text from PDF documents (full or page-by-page)",
         "pdf_snapshot: Render visual preview PNG screenshots of individual, range, or all PDF pages",
         "image_extract: Extract all embedded images and media from PDF, DOCX, or XLSX documents",
+        "extract_links: Extract unique URLs, email addresses, and dates from any document",
+        "extract_tables: Extract tables from Word DOCX, Excel XLSX, or CSV files as structured rows",
+        "extract_metadata: Extract page counts, sheet counts, word counts, and file timestamps",
         "convert: Universal cross-format converter between Markdown, DOCX, PDF, XLSX, CSV, and images"
       ],
       "env": {}

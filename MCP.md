@@ -42,8 +42,10 @@
   - Arguments: `query` (string), `dir` (string), `regex` (bool), `caseSensitive` (bool), `ext` (string, e.g. "js,ts,go"), `context` (int).
 - **`search_files`**: Fast recursive directory crawler matching glob patterns.
   - Arguments: `pattern` (string), `dir` (string), `depth` (int).
+- **`search_docs`**: Multi-threaded search inside documents (PDF, DOCX, XLSX, CSV, Markdown, text).
+  - Arguments: `query` (string), `dir` (string), `regex` (bool), `caseSensitive` (bool), `ext` (string), `exclude` (string), `context` (int), `max` (int).
 
-### 2. Surgical Text Editing
+### 2. Surgical Text Editing & Token Analysis
 - **`read_lines`**: Read exact lines with 1-based indexing and context lines.
   - Arguments: `filePath` (string), `start` (int), `end` (int), `context` (int).
 - **`replace_lines`**: Atomic line replacement via temp file swap (avoids file corruption).
@@ -56,8 +58,20 @@
   - Arguments: `patterns` (array), `output` (string), `header` (string), `delimiter` (string).
 - **`clean_file`**: Strip ANSI escape sequences, remove blank lines, trim trailing whitespace, or regex substitution.
   - Arguments: `filePath` (string), `stripAnsi` (bool), `stripBlank` (bool), `trim` (bool), `pattern` (string), `replace` (string).
+- **`text_chunk`**: Split any document into token-bounded chunks with overlap for RAG pipelines.
+  - Arguments: `filePath` (string), `maxTokens` (int), `overlap` (int), `bySentence` (bool).
+- **`text_tokens`**: Estimate LLM token count, word count, and character count of any file.
+  - Arguments: `filePath` (string).
 
-### 3. Spreadsheets & Tabular Data
+### 3. Extract Structured Data
+- **`extract_links`**: Extract unique URLs, email addresses, and dates from any document.
+  - Arguments: `filePath` (string).
+- **`extract_tables`**: Extract tables from Word DOCX, Excel XLSX, or CSV files as structured rows.
+  - Arguments: `filePath` (string).
+- **`extract_metadata`**: Extract page counts, sheet counts, word counts, and file timestamps.
+  - Arguments: `filePath` (string).
+
+### 4. Spreadsheets & Tabular Data
 - **`sheets_info`**: Inspect sheet names, row counts, and column headers.
   - Arguments: `filePath` (string).
 - **`sheets_get_cell`**: Read a cell's string value (e.g. `B4`).
