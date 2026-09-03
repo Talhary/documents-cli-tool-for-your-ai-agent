@@ -35,6 +35,8 @@ var (
 	cleanASCIIOnly  bool
 	cleanRegex      string
 	cleanReplace    string
+	cleanNormalize  string
+	concatSkipEmpty bool
 )
 
 var readLinesCmd = &cobra.Command{
@@ -48,9 +50,15 @@ var readLinesCmd = &cobra.Command{
 			return err
 		}
 
+		var bytesRead int64
+		for _, l := range res.Lines {
+			bytesRead += int64(l.ByteLength)
+		}
+
 		stats := &output.Stats{
 			FilesProcessed: 1,
 			LinesAffected:  len(res.Lines),
+			BytesRead:      bytesRead,
 		}
 
 		printCmdResponse(cmd, output.SuccessResponse("text.read-lines", res, stats), func() string {
@@ -181,6 +189,7 @@ var concatCmd = &cobra.Command{
 			HeaderTemplate: headerTemplate,
 			Delimiter:      concatDelimiter,
 			AddLineNumbers: concatNumbers,
+			SkipEmpty:      concatSkipEmpty,
 		}
 
 		res, plainOut, err := textops.ConcatFiles(args, opts)
@@ -213,13 +222,14 @@ var cleanCmd = &cobra.Command{
 	RunE: func(cmd *cobra.Command, args []string) error {
 		filePath := args[0]
 		opts := textops.CleanOptions{
-			StripANSI:    cleanStripANSI,
-			StripBlank:   cleanStripBlank,
-			TrimTrailing: cleanTrim,
-			RemoveChars:  cleanRemoveChars,
-			ASCIIOnly:    cleanASCIIOnly,
-			RegexPattern: cleanRegex,
-			RegexReplace: cleanReplace,
+			StripANSI:      cleanStripANSI,
+			StripBlank:     cleanStripBlank,
+			TrimTrailing:   cleanTrim,
+			RemoveChars:    cleanRemoveChars,
+			ASCIIOnly:      cleanASCIIOnly,
+			RegexPattern:   cleanRegex,
+			RegexReplace:   cleanReplace,
+			NormalizeLines: cleanNormalize,
 		}
 
 		res, err := textops.CleanFile(filePath, opts)
@@ -271,6 +281,7 @@ func init() {
 	concatCmd.Flags().StringVar(&headerTemplate, "header", "", "Header template per file (e.g. '=== %f (%n lines) ===')")
 	concatCmd.Flags().StringVar(&concatDelimiter, "delimiter", "", "Delimiter string between files")
 	concatCmd.Flags().BoolVar(&concatNumbers, "numbers", false, "Include line numbers in output")
+	concatCmd.Flags().BoolVar(&concatSkipEmpty, "skip-empty", false, "Skip empty files during concatenation")
 
 	cleanCmd.Flags().BoolVar(&cleanStripANSI, "strip-ansi", false, "Strip ANSI color and terminal escape sequences")
 	cleanCmd.Flags().BoolVar(&cleanStripBlank, "strip-blank", false, "Remove empty or whitespace-only lines")
@@ -279,6 +290,7 @@ func init() {
 	cleanCmd.Flags().BoolVar(&cleanASCIIOnly, "ascii-only", false, "Strip all non-ASCII characters")
 	cleanCmd.Flags().StringVar(&cleanRegex, "pattern", "", "Regex pattern to replace")
 	cleanCmd.Flags().StringVar(&cleanReplace, "replace", "", "Replacement text for regex pattern")
+	cleanCmd.Flags().StringVar(&cleanNormalize, "normalize", "", "Normalize line endings: 'lf' or 'crlf'")
 
 	rootCmd.AddCommand(textCmd)
 }

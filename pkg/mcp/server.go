@@ -98,11 +98,14 @@ func RunServer(r io.Reader, w io.Writer) error {
 				Result: map[string]any{
 					"protocolVersion": "2024-11-05",
 					"capabilities": map[string]any{
-						"tools": map[string]any{},
+						"tools":     map[string]any{},
+						"resources": map[string]any{},
+						"prompts":   map[string]any{},
 					},
 					"serverInfo": map[string]any{
-						"name":    "agentdoc",
-						"version": "1.0.0",
+						"name":        "agentdoc",
+						"version":     "1.0.1",
+						"description": "High-performance CLI and MCP tool suite for AI agents to inspect, search, edit, convert, and visually snapshot documents (PDF, DOCX, XLSX, CSV, Markdown, code, images).",
 					},
 				},
 			}
@@ -117,6 +120,84 @@ func RunServer(r io.Reader, w io.Writer) error {
 				ID:      req.ID,
 				Result:  map[string]any{},
 			})
+
+		case "resources/list":
+			resp := JSONRPCResponse{
+				JSONRPC: "2.0",
+				ID:      req.ID,
+				Result: map[string]any{
+					"resources": []map[string]any{
+						{
+							"uri":         "agentdoc://docs/manual",
+							"name":        "AgentDoc Tool Manual & Documentation",
+							"description": "Complete manual explaining all agentdoc tools, capabilities, and arguments for AI agents.",
+							"mimeType":    "text/markdown",
+						},
+						{
+							"uri":         "agentdoc://docs/cheatsheet",
+							"name":        "AgentDoc Quick Cheatsheet",
+							"description": "Quick reference cheatsheet with practical usage examples for AI agents.",
+							"mimeType":    "text/markdown",
+						},
+					},
+				},
+			}
+			sendResponse(w, resp)
+
+		case "resources/read":
+			var resParams struct {
+				URI string `json:"uri"`
+			}
+			json.Unmarshal(req.Params, &resParams)
+			content := getResourceContent(resParams.URI)
+			resp := JSONRPCResponse{
+				JSONRPC: "2.0",
+				ID:      req.ID,
+				Result: map[string]any{
+					"contents": []map[string]any{
+						{
+							"uri":      resParams.URI,
+							"mimeType": "text/markdown",
+							"text":     content,
+						},
+					},
+				},
+			}
+			sendResponse(w, resp)
+
+		case "prompts/list":
+			resp := JSONRPCResponse{
+				JSONRPC: "2.0",
+				ID:      req.ID,
+				Result: map[string]any{
+					"prompts": []map[string]any{
+						{
+							"name":        "document_agent_instructions",
+							"description": "System instructions and guide for analyzing, editing, and converting documents using agentdoc tools.",
+						},
+					},
+				},
+			}
+			sendResponse(w, resp)
+
+		case "prompts/get":
+			resp := JSONRPCResponse{
+				JSONRPC: "2.0",
+				ID:      req.ID,
+				Result: map[string]any{
+					"description": "AgentDoc Tool Usage Instructions",
+					"messages": []map[string]any{
+						{
+							"role": "user",
+							"content": map[string]any{
+								"type": "text",
+								"text": promptInstructions,
+							},
+						},
+					},
+				},
+			}
+			sendResponse(w, resp)
 
 		case "tools/list":
 			resp := JSONRPCResponse{
@@ -765,3 +846,72 @@ func handleToolCall(name string, rawArgs json.RawMessage) (string, bool) {
 		return fmt.Sprintf("Tool not found: %s", name), true
 	}
 }
+
+func getResourceContent(uri string) string {
+	switch uri {
+	case "agentdoc://docs/manual":
+		return `# agentdoc Tool Manual for AI Agents
+
+agentdoc is a pure-Go, high-performance CLI and MCP tool suite designed specifically for AI agents.
+
+## Capabilities & Tool Mapping
+- **Search**:
+  - 'search_code': Search code/text files with regex or exact text, supporting line context (-C).
+  - 'search_files': Fast recursive file and directory crawler matching glob patterns.
+- **Text Operations**:
+  - 'read_lines': Exact 1-based line reading with line numbers and bounds.
+  - 'replace_lines': Atomically replace lines N..M via temp file swap to avoid corruption.
+  - 'insert_lines': Insert lines before or after any line number.
+  - 'delete_lines': Delete line range N..M.
+  - 'concat_files': Combine multiple files with headers and delimiters.
+  - 'clean_file': Strip ANSI codes, remove blank lines, trim trailing whitespace, regex substitution.
+- **Spreadsheets**:
+  - 'sheets_info': Inspect sheet names, row counts, and column headers.
+  - 'sheets_set_cell': In-place cell value update (e.g. A1, B4).
+  - 'sheets_get_cell': Read a cell's string value.
+  - 'sheets_add_row': Append a row of values to a sheet.
+- **Word DOCX Documents**:
+  - 'docs_read': Extract formatted Markdown or plain text from .docx.
+  - 'docs_snapshot': Render high-resolution PNG preview of .docx document for vision models.
+- **PDF Documents**:
+  - 'pdf_read': Extract plain text (full or page-by-page).
+  - 'pdf_snapshot': Render high-resolution PNG screenshot of any page (or all pages) for vision models.
+- **Images & Media**:
+  - 'image_extract': Extract all embedded images from .pdf, .docx, or .xlsx documents.
+- **Universal Converter**:
+  - 'convert': Universal router for .md <-> .docx, .pdf, .txt; .docx -> .pdf; .xlsx <-> .csv; images -> .pdf.
+`
+	case "agentdoc://docs/cheatsheet":
+		return `# agentdoc Quick Cheatsheet for AI Agents
+
+### Common Tool Recipes:
+1. **Reading & Editing Code**:
+   - Call 'read_lines' with {"filePath": "src/app.js", "start": 10, "end": 30}
+   - Call 'replace_lines' with {"filePath": "src/app.js", "start": 15, "end": 15, "content": "const port = 8080;"}
+2. **Visual Inspection of Documents**:
+   - To inspect a PDF layout visually, call 'pdf_snapshot' with {"filePath": "doc.pdf", "outputTarget": "page1.png", "page": 1}
+   - To inspect a Word doc visually, call 'docs_snapshot' with {"filePath": "doc.docx", "outputPng": "preview.png"}
+3. **Extract Embedded Images**:
+   - Call 'image_extract' with {"documentPath": "document.pdf", "outputDir": "./images"}
+4. **Spreadsheets**:
+   - Call 'sheets_info' to get column headers and row count.
+   - Call 'sheets_set_cell' to update cell values without rewriting the file.
+5. **Universal Conversion**:
+   - Call 'convert' with {"input": "readme.md", "output": "readme.pdf"}
+`
+	default:
+		return "Resource not found: " + uri
+	}
+}
+
+const promptInstructions = `You have access to the agentdoc MCP tool suite, optimized for high-performance document, spreadsheet, PDF, code, and image manipulation.
+
+Key Guidelines:
+1. When inspecting code, use 'read_lines' to fetch only relevant line ranges to preserve context window tokens.
+2. When modifying files, prefer 'replace_lines' for atomic updates rather than full-file rewrites.
+3. When analyzing PDFs or Word documents:
+   - Use 'pdf_read' or 'docs_read' to extract textual content.
+   - If visual layout, diagrams, or styling analysis is needed, use 'pdf_snapshot' or 'docs_snapshot' to render PNG screenshots for vision analysis.
+4. To extract embedded diagrams and photos from PDF, DOCX, or XLSX files, use 'image_extract'.
+5. To query or update spreadsheets, use 'sheets_info', 'sheets_get_cell', and 'sheets_set_cell'.`
+

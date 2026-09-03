@@ -128,9 +128,17 @@ var searchFilesCmd = &cobra.Command{
 			includes = append(includes, pattern)
 		}
 
+		var excludes []string
+		if excludeGlobs != "" {
+			for _, ex := range strings.Split(excludeGlobs, ",") {
+				excludes = append(excludes, strings.TrimSpace(ex))
+			}
+		}
+
 		opts := search.FindOptions{
 			RootPath:     searchDir,
 			IncludeGlobs: includes,
+			ExcludeGlobs: excludes,
 			IncludeDirs:  includeDirsInFind,
 			MaxDepth:     maxSearchDepth,
 			IgnoreHidden: true,

@@ -4,6 +4,10 @@ import (
 	"docs-cli/cmd"
 )
 
+// version is injected at build time via -ldflags "-X main.version=vX.Y.Z".
+var version = "dev"
+
 func main() {
+	cmd.SetVersion(version)
 	cmd.Execute()
 }

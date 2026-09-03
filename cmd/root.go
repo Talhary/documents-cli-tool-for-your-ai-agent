@@ -19,11 +19,19 @@ var rootCmd = &cobra.Command{
 	Long: `agentdoc provides AI agents with fast, concurrent tools to inspect,
 search, manipulate, edit, convert, and snapshot documents, code, spreadsheets,
 PDFs, and images with structured JSON responses.`,
+	Version: "dev",
 	PersistentPreRun: func(cmd *cobra.Command, args []string) {
 		if workersCount <= 0 {
 			workersCount = runtime.NumCPU()
 		}
 	},
+}
+
+// SetVersion sets the CLI version reported by --version (injected from main).
+func SetVersion(v string) {
+	if v != "" {
+		rootCmd.Version = v
+	}
 }
 
 // Execute adds all child commands to the root command and sets flags appropriately.
