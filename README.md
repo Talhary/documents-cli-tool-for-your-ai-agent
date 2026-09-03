@@ -51,6 +51,36 @@ go build -ldflags="-s -w" -o agentdoc .
 
 ---
 
+## 🔌 Model Context Protocol (MCP) Integration
+
+`agentdoc` includes a built-in native **MCP Server** (`agentdoc mcp`) over standard I/O (stdio) using JSON-RPC 2.0. Any MCP-compatible AI agent or IDE can automatically discover and use all document tools without writing any wrappers.
+
+### Configuration (`mcp_config.json` / `claude_desktop_config.json`)
+
+Add the following to your AI client's MCP configuration:
+
+```json
+{
+  "mcpServers": {
+    "agentdoc": {
+      "command": "agentdoc",
+      "args": ["mcp"]
+    }
+  }
+}
+```
+
+#### Client Configuration Paths:
+- **Claude Desktop (Windows)**: `%APPDATA%\Claude\claude_desktop_config.json`
+- **Claude Desktop (macOS)**: `~/Library/Application Support/Claude/claude_desktop_config.json`
+- **Antigravity IDE / Gemini IDE**: `%USERPROFILE%\.gemini\config\mcp_config.json`
+- **Cursor**: Settings $\rightarrow$ Features $\rightarrow$ MCP Servers $\rightarrow$ Add New MCP Server (`Command: agentdoc`, `Args: mcp`)
+- **VS Code (Cline / Roo Code)**: `%APPDATA%\Code\User\globalStorage\saoudrizwan.claude-dev\settings\cline_mcp_settings.json`
+
+Once configured, your AI assistant will have direct access to tools like `search_code`, `read_lines`, `replace_lines`, `docs_read`, `docs_snapshot`, `pdf_read`, `pdf_snapshot`, `sheets_set_cell`, `image_extract`, `convert`, and more!
+
+---
+
 ## 📖 Command Reference
 
 ### Global Flags
