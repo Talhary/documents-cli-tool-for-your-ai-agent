@@ -101,6 +101,14 @@
 - **`convert`**: Universal cross-format converter between Markdown, DOCX, PDF, XLSX, CSV, and images.
   - Arguments: `input` (string), `output` (string), `sheet` (string).
 
+### 8. SVG Icons Finder & Scraper
+- **`icon_search`**: Search over 200,000+ vector icons across products, brands, tech stacks, UI controls, and generic things.
+  - Arguments: `query` (string, required), `collection` (string, optional), `limit` (int, optional).
+- **`icon_get`**: Fetch clean SVG markup, React/JSX component, or Data-URI for an icon with color and size customization.
+  - Arguments: `icon` (string, required), `color` (string, optional), `size` (int, optional), `format` (string: "svg"|"jsx"|"data-uri"), `outputPath` (string, optional).
+- **`icon_scrape`**: Extract and scrape inline SVG icons from any webpage URL or local HTML file.
+  - Arguments: `source` (string, required), `outputDir` (string, optional).
+
 ---
 
 ## 📚 Built-in MCP Resources

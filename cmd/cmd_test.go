@@ -141,3 +141,49 @@ func TestCLI_SheetsCellEdit(t *testing.T) {
 		t.Errorf("expected 25 in cell, got: %s", val)
 	}
 }
+
+func TestCLI_IconSearch(t *testing.T) {
+	output.JSONMode = true
+	defer func() { output.JSONMode = false }()
+
+	out, err := executeCommand("icon", "search", "react", "--json")
+	if err != nil {
+		t.Fatalf("icon search failed: %v", err)
+	}
+
+	var resp output.Response
+	if err := json.Unmarshal([]byte(out), &resp); err != nil {
+		t.Fatalf("failed unmarshaling json: %v, raw:\n%s", err, out)
+	}
+	if !resp.Success {
+		t.Errorf("expected success true")
+	}
+	if resp.Command != "icon.search" {
+		t.Errorf("unexpected command: %s", resp.Command)
+	}
+}
+
+func TestCLI_IconGet(t *testing.T) {
+	tmpDir := t.TempDir()
+	outSVG := filepath.Join(tmpDir, "cart.svg")
+
+	output.JSONMode = true
+	defer func() { output.JSONMode = false }()
+
+	out, err := executeCommand("icon", "get", "lucide:shopping-cart", "-o", outSVG, "--json")
+	if err != nil {
+		t.Fatalf("icon get failed: %v", err)
+	}
+
+	var resp output.Response
+	if err := json.Unmarshal([]byte(out), &resp); err != nil {
+		t.Fatalf("failed unmarshaling json: %v, raw:\n%s", err, out)
+	}
+	if !resp.Success {
+		t.Errorf("expected success true")
+	}
+	if _, err := os.Stat(outSVG); err != nil {
+		t.Errorf("expected file %s to be created: %v", outSVG, err)
+	}
+}
+

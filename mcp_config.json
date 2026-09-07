@@ -28,7 +28,10 @@
         "extract_links: Extract unique URLs, email addresses, and dates from any document",
         "extract_tables: Extract tables from Word DOCX, Excel XLSX, or CSV files as structured rows",
         "extract_metadata: Extract page counts, sheet counts, word counts, and file timestamps",
-        "convert: Universal cross-format converter between Markdown, DOCX, PDF, XLSX, CSV, and images"
+        "convert: Universal cross-format converter between Markdown, DOCX, PDF, XLSX, CSV, and images",
+        "icon_search: Search over 200,000+ vector icons across products, brands, tech stacks, UI controls, and things",
+        "icon_get: Fetch clean SVG markup, React/JSX component, or Data-URI for an icon with color/size customization",
+        "icon_scrape: Extract and scrape SVG icons from any webpage URL or local HTML file"
       ],
       "env": {}
     }

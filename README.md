@@ -377,6 +377,61 @@ agentdoc batch manifest.json --json --stop-on-error
     }
   }
 ]
+---
+
+### 11. SVG Icons Finder & Scraper (`agentdoc icon`)
+
+Search over 200,000+ vector icons across **products** (Docker, AWS, React, Python), **brands** (GitHub, Stripe, Google, Apple), **modern UI** (Lucide, Heroicons, Material Symbols, Tabler), and **things** (shopping-cart, credit-card, globe) with offline fallback resiliency, SVG customization, and webpage scraping.
+
+```bash
+# Search icons for products, brands, UI controls, or objects
+agentdoc icon search "react" --collection logos
+agentdoc icon search "shopping cart" --limit 5
+agentdoc icon search "docker" --json
+
+# Fetch clean SVG markup for an icon
+agentdoc icon get "logos:react"
+
+# Customize size and color, saving directly to an SVG asset file
+agentdoc icon get "lucide:shopping-cart" -o ./src/assets/cart.svg --color "#ff0000" --size 32
+
+# Export directly as a ready-to-use React / JSX component
+agentdoc icon get "logos:github" --jsx -o ./src/components/GithubIcon.tsx
+
+# Export as Base64 Data-URI for CSS background-image or HTML <img>
+agentdoc icon get "lucide:bell" --data-uri
+
+# List curated icon packs and prefixes (Logos, UI, Material, Brands)
+agentdoc icon collections
+
+# Scrape and extract SVG icons from any webpage URL or local HTML file
+agentdoc icon scrape https://example.com --out-dir ./scraped_icons/
+agentdoc icon scrape ./index.html --out-dir ./extracted/
+```
+
+#### JSON Response Schema:
+```json
+{
+  "success": true,
+  "command": "icon.search",
+  "data": {
+    "query": "react",
+    "total": 32,
+    "source": "iconify-live",
+    "icons": [
+      {
+        "id": "logos:react",
+        "collection": "logos",
+        "name": "react",
+        "category": "Logos",
+        "preview_url": "https://api.iconify.design/logos/react.svg"
+      }
+    ]
+  },
+  "stats": {
+    "matches_found": 1
+  }
+}
 ```
 
 ---

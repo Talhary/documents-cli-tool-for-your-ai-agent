@@ -70,5 +70,24 @@ func TestDispatch_NewTools(t *testing.T) {
 	if isErr {
 		t.Fatalf("Dispatch extract_links failed: %s", rawLinks)
 	}
+
+	// Test icon_search
+	rawIcons, isErr := Dispatch("icon_search", []byte(`{"query":"react","limit":3}`))
+	if isErr {
+		t.Fatalf("Dispatch icon_search failed: %s", rawIcons)
+	}
+	if !strings.Contains(rawIcons, "react") {
+		t.Errorf("expected 'react' in icon_search output: %s", rawIcons)
+	}
+
+	// Test icon_get
+	rawSVG, isErr := Dispatch("icon_get", []byte(`{"icon":"lucide:search","size":24}`))
+	if isErr {
+		t.Fatalf("Dispatch icon_get failed: %s", rawSVG)
+	}
+	if !strings.Contains(rawSVG, "lucide:search") || !strings.Contains(rawSVG, "svg") {
+		t.Errorf("expected SVG in icon_get output: %s", rawSVG)
+	}
 }
+
 

@@ -11,6 +11,7 @@ import (
 	"docs-cli/pkg/converter"
 	"docs-cli/pkg/docs"
 	"docs-cli/pkg/extract"
+	"docs-cli/pkg/icon"
 	"docs-cli/pkg/imgops"
 	"docs-cli/pkg/pdf"
 	"docs-cli/pkg/search"
@@ -584,6 +585,46 @@ func GetToolDefinitions() []Tool {
 				Required: []string{"filePath"},
 			},
 		},
+		{
+			Name:        "icon_search",
+			Description: "Search over 200,000+ vector icons across products, brands, tech stacks, UI controls, and generic things",
+			InputSchema: InputSchema{
+				Type: "object",
+				Properties: map[string]Property{
+					"query":      {Type: "string", Description: "Search query (e.g. 'react', 'docker', 'shopping-cart', 'chevron', 'stripe')"},
+					"collection": {Type: "string", Description: "Filter to specific collection (e.g. 'logos', 'lucide', 'simple-icons', 'devicon')"},
+					"limit":      {Type: "integer", Description: "Maximum number of search results (default 10)"},
+				},
+				Required: []string{"query"},
+			},
+		},
+		{
+			Name:        "icon_get",
+			Description: "Fetch clean SVG markup, React/JSX component, or Data-URI for an icon by ID (e.g. 'logos:react', 'lucide:shopping-cart') or search keyword",
+			InputSchema: InputSchema{
+				Type: "object",
+				Properties: map[string]Property{
+					"icon":       {Type: "string", Description: "Icon ID (e.g. 'logos:react', 'lucide:search') or search query"},
+					"color":      {Type: "string", Description: "Override fill/stroke color (e.g. '#00d8ff', 'currentColor')"},
+					"size":       {Type: "integer", Description: "Square size in pixels (e.g. 24, 32, 48)"},
+					"format":     {Type: "string", Description: "Output format: 'svg' (default), 'jsx' (React component), or 'data-uri'"},
+					"outputPath": {Type: "string", Description: "File path to write the SVG or JSX icon to (optional)"},
+				},
+				Required: []string{"icon"},
+			},
+		},
+		{
+			Name:        "icon_scrape",
+			Description: "Extract and scrape SVG icons from a webpage URL or local HTML file",
+			InputSchema: InputSchema{
+				Type: "object",
+				Properties: map[string]Property{
+					"source":    {Type: "string", Description: "Webpage URL (http/https) or local HTML file path"},
+					"outputDir": {Type: "string", Description: "Directory to save extracted SVG files into (optional)"},
+				},
+				Required: []string{"source"},
+			},
+		},
 	}
 }
 
@@ -1040,6 +1081,54 @@ func Dispatch(name string, rawArgs json.RawMessage) (string, bool) {
 		}
 		json.Unmarshal(rawArgs, &args)
 		res, err := extract.Metadata(args.FilePath)
+		if err != nil {
+			return err.Error(), true
+		}
+		b, _ := json.MarshalIndent(res, "", "  ")
+		return string(b), false
+
+	case "icon_search":
+		var args struct {
+			Query      string `json:"query"`
+			Collection string `json:"collection"`
+			Limit      int    `json:"limit"`
+		}
+		json.Unmarshal(rawArgs, &args)
+		res, err := icon.SearchIcons(args.Query, args.Collection, args.Limit)
+		if err != nil {
+			return err.Error(), true
+		}
+		b, _ := json.MarshalIndent(res, "", "  ")
+		return string(b), false
+
+	case "icon_get":
+		var args struct {
+			Icon       string `json:"icon"`
+			Color      string `json:"color"`
+			Size       int    `json:"size"`
+			Format     string `json:"format"`
+			OutputPath string `json:"outputPath"`
+		}
+		json.Unmarshal(rawArgs, &args)
+		res, err := icon.GetIcon(args.Icon, icon.GetOptions{
+			Color:      args.Color,
+			Size:       args.Size,
+			Format:     args.Format,
+			OutputPath: args.OutputPath,
+		})
+		if err != nil {
+			return err.Error(), true
+		}
+		b, _ := json.MarshalIndent(res, "", "  ")
+		return string(b), false
+
+	case "icon_scrape":
+		var args struct {
+			Source    string `json:"source"`
+			OutputDir string `json:"outputDir"`
+		}
+		json.Unmarshal(rawArgs, &args)
+		res, err := icon.ScrapeSVGs(args.Source, args.OutputDir)
 		if err != nil {
 			return err.Error(), true
 		}
